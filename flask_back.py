@@ -10,10 +10,11 @@ app = Flask(__name__)
 
 @app.route("/login", methods=["POST", "GET"])
 def login():
-    if request.method == 'POST':
-        req = request.json
-        print(req)
-    conn = sqlite3.connect("justUp.db")
+    req = request.json
+    # if request.method == 'POST':
+    #
+    #     print(req)
+    conn = sqlite3.connect("/home/fvedenev/JustUpBackFlask/justUp.db")
     cursor = conn.cursor()
     for title, in cursor.execute('SELECT mail FROM users WHERE mail LIKE ?', [req['email']]):
         print(title)
@@ -22,26 +23,65 @@ def login():
 
 @app.route("/sign_in-flask", methods=["POST", "GET"])
 def sign_in_flask():
-    if request.method == 'POST':
-        req = request.json
-        print(req)
+    # if request.method == 'POST':
+
+    #     print(req)
+    req = request.json
+    # conn = sqlite3.connect("/home/fvedenev/JustUpBackFlask/justUp.db")
+    # cursor = conn.cursor()
+
+
+    # cursor.execute(
+    #     f"INSERT INTO about_user_history VALUES (1,'{req['transport']}', '{req['climate']}', '{req['type']}','{req['adults']}', '{req['childs']}', '{req['pets']}', '{req['money']}', '{req['dista']}', '{req['distb']}', '{req['date']}', '{req['duration']}')")
+    #
+    transport = req['transport']
+    climate= req['climate']
+    type = req['type']
+    adults = req['adults']
+    childs = req['childs']
+    animal = req['pets']
+    money = req['money']
+    place_A = req['dista']
+    place_B = req['distb']
+    date = req['date']
+    length_days = req['duration']
+    geolocator = Nominatim(user_agent="my_request")
+    locations = geolocator.geocode(place_A)
+    place_A_lat = locations.latitude
+    place_A_lon = locations.longitude
+    locations = geolocator.geocode(place_B)
+    place_B_lat = locations.latitude
+    place_B_lon = locations.longitude
     conn = sqlite3.connect("justUp.db")
     cursor = conn.cursor()
-    cursor.execute(
-        f"INSERT INTO about_user_history VALUES (1,'{req['transport']}', '{req['climate']}', '{req['type']}','{req['adults']}', '{req['childs']}', '{req['pets']}', '{req['money']}', '{req['dista']}', '{req['distb']}', '{req['date']}', '{req['duration']}')")
+    dataMass = []
+    sql = "SELECT * from travel where transport=? and money between ? and ? and type=? ORDER_BY money DESK"
+    for data in cursor.fetchall(sql, [transport, 0, money + 5000, type]):
+        if GD((place_A_lat, place_A_lon), (data[1], data[2])).m <= 50000 and GD((place_B_lat, place_B_lon),
+                                                                                (data[3], data[4])).m <= 50000:
+            dataMass.append(data)
+
+    cursor.execute("INSERT INTO about_user_history VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [transport, climate,
+                                                                                                  type, adults, childs,
+                                                                                                  animal, money,
+                                                                                                  place_A, place_B,
+                                                                                                  date, length_days])
     conn.commit()
-    return 'None'
+    return jsonify(dataMass)
+    # conn.commit()
+    # return 'None'
 
 
 @app.route("/near", methods=["POST"])
 def near():
-    if request.method == 'POST':
-        req = request.json
-        print(req)
+    req = request.json
+    # if request.method == 'POST':
+    #     req = request.json
+    #     print(req)
     g = (57.624758, 39.884910)
     print(g)
     try:
-        sqlite_connection = sqlite3.connect('justUp.db')
+        sqlite_connection = sqlite3.connect('/home/fvedenev/JustUpBackFlask/justUp.db')
 
         cursor = sqlite_connection.cursor()
         print("Подключен к SQLite")
@@ -88,7 +128,7 @@ def maps(place):
 @app.route('/entrance', methods=['post', 'get'])
 def entrance():
     answer = {'phone': False, 'password': False, 'output': "You don't reqistered"}
-    db = sqlite3.connect("justUp.db")
+    db = sqlite3.connect("/home/fvedenev/JustUpBackFlask/justUp.db")
     cur = db.cursor()
     if request.method == 'POST':
         req = request.json
@@ -111,10 +151,11 @@ def entrance():
 
 @app.route("/reg", methods=['POST', 'GET'])
 def reg():
-    if request.method == 'POST':
-        req = request.form
-        print(req)
-    conn = sqlite3.connect("justUp.db")
+    req = request.form
+    # if request.method == 'POST':
+    #
+    #     print(req)
+    conn = sqlite3.connect("/home/fvedenev/JustUpBackFlask/justUp.db")
     cursor = conn.cursor()
     select = """select id from users"""
     cursor.execute(select)
