@@ -1,125 +1,106 @@
-from flask import Flask, render_template, url_for, request, jsonify
+import re
 from geopy.distance import geodesic as GD
+import geocoder
+from flask import Flask, jsonify
 import sqlite3
-
-
+from geopy.geocoders import Nominatim
 
 app = Flask(__name__)
 
 
+@app.route('/entrance/phone=<phone>&password=<password>')
+def entrance(phone, password):
+    db = sqlite3.connect("justUp.db")
+    cur = db.cursor()
+    sql = "select phone from users where phone=?"
+    cur.execute(sql, [phone])
+    if len(cur.fetchall()) == 0:
+        return jsonify("Данный телефон не зарегистрирован в системе")
+    sql = "select password from users where phone=?"
+    cur.execute(sql, [phone])
+    if str(password) != str(cur.fetchone()[0]):
+        return jsonify("Пароль неверный")
+    return jsonify("Успешно")
 
-@app.route("/login", methods=["POST", "GET"])
-def login():
-    if request.method == 'POST':
-        req = request.json
-        print(req)
+
+@app.route('/reg/phone=<phone>&fio=<fio>&mail=<mail>&password=<password>')
+def reg(phone, fio, mail, password):
+    db = sqlite3.connect("justUp.db")
+    cur = db.cursor()
+    sql = "select phone from users where phone=?"
+    cur.execute(sql, [phone])
+    if len(cur.fetchall()) != 0:
+        return jsonify("Данный телефон уже зарегистрирован в системе")
+    if re.fullmatch(r"8\d{10}|\+7\d{10}", str(phone)) is None:
+        return jsonify("Неподходящий номер телефона")
+    cur.execute("INSERT INTO users (fio, phone, mail, password) VALUES (?, ?, ?, ?)", [fio, phone, mail, password])
+    db.commit()
+    return jsonify("Успешно зарегистрирован")
+
+
+@app.route('/maps/<place>')
+def maps(place):
+    place = str(place).replace("+", " ")
+    geolocator = Nominatim(user_agent="my_request")
+    locations = geolocator.geocode(place)
+    print(locations)
+    print(locations.latitude, locations.longitude)
+
+    return jsonify({"lat":locations.latitude, "lon":locations.longitude})
+
+
+@app.route("/sign_in-flask/transport=<transport>&climate=<climate>&type=<type>&adults=<adults>&childs=<childs>&animal"
+           "=<animal>&money=<money>&place_A=<place_A>&place_B=<place_B>&date=<date>&length_days=<length_days>")
+def sign_in_flask(transport, climate, type, adults, childs, animal, money, place_A, place_B, date, length_days):
+    geolocator = Nominatim(user_agent="my_request")
+    locations = geolocator.geocode(place_A)
+    place_A_lat = locations.latitude
+    place_A_lon = locations.longitude
+    locations = geolocator.geocode(place_B)
+    place_B_lat = locations.latitude
+    place_B_lon = locations.longitude
     conn = sqlite3.connect("justUp.db")
     cursor = conn.cursor()
-    for title, in cursor.execute('SELECT mail FROM users WHERE mail LIKE ?', [req['email']]):
-        print(title)
-    return 'Hello'
+    dataMass = []
+    sql = "SELECT * from travel where transport=? and money between ? and ? and type=? ORDER_BY money DESK"
+    for data in cursor.fetchall(sql, [transport, 0, money + 5000, type]):
+        if GD((place_A_lat, place_A_lon), (data[1], data[2])).m <= 50000 and GD((place_B_lat, place_B_lon),(data[3], data[4])).m <= 50000:
+            dataMass.append(data)
 
-
-@app.route("/sign_in-flask", methods=["POST", "GET"])
-def sign_in_flask():
-    if request.method == 'POST':
-        req = request.json
-        print(req)
-    conn = sqlite3.connect("justUp.db")
-    cursor = conn.cursor()
-    cursor.execute(f"INSERT INTO about_user_history VALUES (1,'{req['transport']}', '{req['climate']}', '{req['type']}','{req['adults']}', '{req['childs']}', '{req['pets']}', '{req['money']}', '{req['dista']}', '{req['distb']}', '{req['date']}', '{req['duration']}')")
+    cursor.execute("INSERT INTO about_user_history VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [transport, climate,
+                   type, adults, childs, animal, money, place_A, place_B, date, length_days])
     conn.commit()
-    return 'None'
-@app.route("/near", methods=["POST"])
+    return jsonify(dataMass)
+
+
+@app.route("/near/coord_lat=<coord_lat>&coord_lon=<coord_lon>")
 def near():
-    if request.method == 'POST':
-        req = request.json
-        print(req)
-    g = (57.624758, 39.884910)
-    print(g)
+    g =geocoder.ip("me").latlng
     try:
         sqlite_connection = sqlite3.connect('justUp.db')
 
         cursor = sqlite_connection.cursor()
-        print("Подключен к SQLite")
 
         sqlite_select_query = """SELECT * from places"""
         cursor.execute(sqlite_select_query)
         records = cursor.fetchall()
-        print("Всего строк: ", len(records))
-        print("Вывод каждой строки")
         mins = []
-        print(records)
         for row in records:
             mins.append(GD(g, (row[6], row[7])))
         mins_num = list(enumerate(mins, 0))
 
         t_min = min(mins_num, key=lambda i: i[1])
-        if GD(g, (records[t_min[0]][6], records[t_min[0]][7])).m <= 2500:
-            print(records[t_min[0]][2] + " - подходит")
-            answer = {'latitude' : records[t_min[0]][6], 'longtitude' : records[t_min[0]][7], 'description' : records[t_min[0]][4]}
+        if GD(g, (records[t_min[0]][6], records[t_min[0]][7])).m <= 1000:
+            answer = {'latitude': records[t_min[0]][6], 'longtitude': records[t_min[0]][7],
+                      'description': records[t_min[0]][4]}
             return jsonify(answer)
 
         cursor.close()
-
-    except sqlite3.Error as error:
-        print("Ошибка при работе с SQLite", error)
+        return None
+    except sqlite3.Error:
+        return None
     finally:
-        if sqlite_connection:
-            sqlite_connection.close()
-            print("Соединение с SQLite закрыто")
-
-
-
-@app.route('/entrance', methods=['post', 'get'])
-def entrance():
-    answer = {'phone' : False, 'password' : False, 'output' : "You don't reqistered"}
-    if request.method == 'POST':
-        db = sqlite3.connect("/home/fvedenev/JustUpBackFlask/justUp.db")
-        cur = db.cursor()
-        req = request.json
-        print(req)
-        sql = "select phone from users where phone=?"
-        cur.execute(sql, [req['phone']])
-    if len(cur.fetchall()) == 0:
-        return jsonify(answer)
-    sql = "select password from users where phone=?"
-    cur.execute(sql, [req['phone']])
-    if str(req['password']) != str(cur.fetchone()[0]):
-        answer['phone'] = True
-        answer['output'] = "Wrong password"
-        return jsonify(answer)
-    answer['password'] = True
-    answer['phone'] = True
-    answer['output']= "Ok"
-    return jsonify(answer)
-
-
-
-
-@app.route("/reg", methods=['POST', 'GET'])
-def reg():
-    if request.method == 'POST':
-        req = request.form
-        print(req)
-    conn = sqlite3.connect("justUp.db")
-    cursor = conn.cursor()
-    select = """select id from users"""
-    cursor.execute(select)
-    records = cursor.fetchall()
-    print("Всего строк:  ", len(records))
-    print("Вывод максимума")
-    maxi = []
-    for row in records:
-        maxi.append(row[0])
-    cursor.execute(f"INSERT INTO users VALUES ('{max(maxi) + 1}', '{req['fio']}', '{req['phone']}', '{req['email']}', '{req['password']}', '{req['KM']}' )")
-    conn.commit()
-    cursor.close()
-    return 'None'
-
-
-
-
+        return None
 
 
 if __name__ == "__main__":
