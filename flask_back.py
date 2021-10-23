@@ -75,7 +75,7 @@ def near():
 def entrance():
     answer = {'phone' : False, 'password' : False, 'output' : "You don't reqistered"}
     if request.method == 'POST':
-        db = sqlite3.connect("justUp.db")
+        db = sqlite3.connect("/home/fveden/JustUpBackFlask/justUp.db")
         cur = db.cursor()
         req = request.json
         print(req)
