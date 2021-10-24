@@ -68,8 +68,9 @@ def near():
     # if request.method == 'POST':
     #     req = request.json
     #     print(req)
-    g = (57.624758, 39.884910)
-    print(g)
+    #g = (57.624758, 39.884910)
+    g = (req['latitude'], req['longtitude'])
+    #print(g)
     try:
         sqlite_connection = sqlite3.connect('/home/fvedenev/JustUpBackFlask/justUp.db')
 
@@ -127,22 +128,22 @@ def entrance():
     sql = "select phone from users where phone=?"
     cur.execute(sql, [req['phone']])
     if len(cur.fetchall()) == 0:
-        return abort(401)
+        abort(401)
     sql = "select password from users where phone=?"
     cur.execute(sql, [req['phone']])
     if str(req['password']) != str(cur.fetchone()[0]):
         answer['phone'] = True
         answer['output'] = "Wrong password"
-        return abort(401)
+        abort(401)
     answer['password'] = True
     answer['phone'] = True
     answer['output'] = "Ok"
-    return abort(200)
+    return 'OK'
 
 
 @app.route("/reg", methods=['POST', 'GET'])
 def reg():
-    req = request.form
+    req = request.json
     # if request.method == 'POST':
     #
     #     print(req)
