@@ -1,4 +1,4 @@
-from flask import Flask, render_template, url_for, request, jsonify
+from flask import Flask, render_template, url_for, request, jsonify, abort
 from geopy.distance import geodesic as GD
 import sqlite3
 from geopy.geocoders import Nominatim
@@ -8,20 +8,8 @@ import re
 app = Flask(__name__)
 
 
-@app.route("/login", methods=["POST", "GET"])
-def login():
-    req = request.json
-    # if request.method == 'POST':
-    #
-    #     print(req)
-    conn = sqlite3.connect("/home/fvedenev/JustUpBackFlask/justUp.db")
-    cursor = conn.cursor()
-    for title, in cursor.execute('SELECT mail FROM users WHERE mail LIKE ?', [req['email']]):
-        print(title)
-    return 'Hello'
 
-
-@app.route("/sign_in-flask", methods=["POST", "GET"])
+@app.route("/mar", methods=["POST", "GET"])
 def sign_in_flask():
     # if request.method == 'POST':
 
@@ -132,23 +120,24 @@ def entrance():
     answer = {'phone': False, 'password': False, 'output': "You don't reqistered"}
     db = sqlite3.connect("/home/fvedenev/JustUpBackFlask/justUp.db")
     cur = db.cursor()
-    if request.method == 'POST':
-        req = request.json
-        print(req)
-        sql = "select phone from users where phone=?"
-        cur.execute(sql, [req['phone']])
+    req = request.json
+    # if request.method == 'POST':
+
+    #     print(req)
+    sql = "select phone from users where phone=?"
+    cur.execute(sql, [req['phone']])
     if len(cur.fetchall()) == 0:
-        return jsonify(answer)
+        return abort(401)
     sql = "select password from users where phone=?"
     cur.execute(sql, [req['phone']])
     if str(req['password']) != str(cur.fetchone()[0]):
         answer['phone'] = True
         answer['output'] = "Wrong password"
-        return jsonify(answer)
+        return abort(401)
     answer['password'] = True
     answer['phone'] = True
     answer['output'] = "Ok"
-    return jsonify(answer)
+    return abort(200)
 
 
 @app.route("/reg", methods=['POST', 'GET'])
