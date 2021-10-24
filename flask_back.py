@@ -33,7 +33,7 @@ def sign_in_flask():
 
     # cursor.execute(
     #     f"INSERT INTO about_user_history VALUES (1,'{req['transport']}', '{req['climate']}', '{req['type']}','{req['adults']}', '{req['childs']}', '{req['pets']}', '{req['money']}', '{req['dista']}', '{req['distb']}', '{req['date']}', '{req['duration']}')")
-    #
+
     transport = req['transport']
     climate= req['climate']
     type = req['type']
@@ -52,11 +52,13 @@ def sign_in_flask():
     locations = geolocator.geocode(place_B)
     place_B_lat = locations.latitude
     place_B_lon = locations.longitude
-    conn = sqlite3.connect("justUp.db")
+    conn = sqlite3.connect("/home/fvedenev/JustUpBackFlask/justUp.db")
     cursor = conn.cursor()
     dataMass = []
-    sql = "SELECT * from travel where transport=? and money between ? and ? and type=? ORDER_BY money DESK"
-    for data in cursor.fetchall(sql, [transport, 0, money + 5000, type]):
+    #sql = "SELECT * from travel where transport=? and money between ? and ? and type=? ORDER_BY money DESK"
+    sql = "SELECT * from travel where transport=? and money between ? and ?"
+    cursor.execute(sql, [transport, 0, (money + 5000)])
+    for data in cursor.fetchall():
         if GD((place_A_lat, place_A_lon), (data[1], data[2])).m <= 50000 and GD((place_B_lat, place_B_lon),
                                                                                 (data[3], data[4])).m <= 50000:
             dataMass.append(data)
@@ -64,7 +66,7 @@ def sign_in_flask():
     cursor.execute("INSERT INTO about_user_history VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [transport, climate,
                                                                                                   type, adults, childs,
                                                                                                   animal, money,
-                                                                                                  place_A, place_B,
+                                                                                                  str(place_A), str(place_B),
                                                                                                   date, length_days])
     conn.commit()
     return jsonify(dataMass)
